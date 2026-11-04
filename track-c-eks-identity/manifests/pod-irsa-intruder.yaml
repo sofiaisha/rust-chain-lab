@@ -1,0 +1,23 @@
+# Ejercicio C4. Una cuenta de servicio DISTINTA (intruder) con la anotación del rol de IRSA de otra.
+# Como la trust policy exige el `sub` de irsa-reader, la asunción debe fallar.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: irsa-intruder
+  namespace: lab
+spec:
+  serviceAccountName: intruder
+  restartPolicy: Never
+  containers:
+    - name: aws-cli
+      image: public.ecr.aws/aws-cli/aws-cli:latest
+      env:
+        - name: AWS_DEFAULT_REGION
+          value: us-east-1
+      command: ["sh", "-c"]
+      args:
+        - |
+          echo "--- variables de credenciales (solo nombres y rutas) ---"
+          env | grep -E '^AWS_(ROLE_ARN|WEB_IDENTITY_TOKEN_FILE)=' || true
+          echo "--- intento de asumir el rol ajeno ---"
+          aws sts get-caller-identity

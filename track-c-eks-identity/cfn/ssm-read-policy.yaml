@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  trust-chain-lab, pista C. Un parámetro de SSM y una política gestionada de mínimo privilegio
+  (solo ssm:GetParameter sobre ese parámetro) que usarán los roles de IRSA y de EKS Pod Identity.
+  No cuesta nada.
+
+Resources:
+  LabParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /trust-chain-lab/pods
+      Type: String
+      Value: "hola desde un pod con identidad propia"
+      Description: Valor que leen los pods del ejercicio para demostrar que asumieron un rol.
+
+  ReadLabParameterPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: trust-chain-lab-ssm-read
+      Description: Lectura de un solo parámetro de SSM para la pista C del laboratorio.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: ssm:GetParameter
+            Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/trust-chain-lab/pods"
+
+Outputs:
+  PolicyArn:
+    Description: ARN de la política que se adjunta a los roles de los pods.
+    Value: !Ref ReadLabParameterPolicy

@@ -1,0 +1,7 @@
+# Clúster local para la pista B. La imagen del nodo se fija en Kubernetes 1.36 porque Kyverno 1.19
+# documenta pruebas con Kubernetes 1.33 a 1.36 (kind v0.33.0 usa 1.37 por defecto).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed

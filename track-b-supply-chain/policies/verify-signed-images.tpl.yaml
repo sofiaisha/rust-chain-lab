@@ -1,0 +1,34 @@
+# Plantilla de ImageValidatingPolicy (Kyverno 1.19, API policies.kyverno.io/v1).
+# Adaptada del ejemplo "Cosign Keyless Verification" de la documentación oficial de Kyverno:
+# modo Deny en lugar de Audit, e identidad fijada a un workflow y una rama concretos.
+# Se renderiza con scripts/render-policy.sh (reemplaza __OWNER__ y __REPO__).
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: verify-signed-images
+spec:
+  validationActions: [Deny]
+  webhookConfiguration:
+    timeoutSeconds: 15
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ['']
+        apiVersions: ['v1']
+        resources: ['pods']
+        operations: ['CREATE', 'UPDATE']
+  matchImageReferences:
+    - glob: 'ghcr.io/__OWNER__/__REPO__/demo*'
+  attestors:
+    - name: cosign
+      cosign:
+        keyless:
+          identities:
+            - subject: 'https://github.com/__OWNER__/__REPO__/.github/workflows/b-build-sign.yml@refs/heads/main'
+              issuer: 'https://token.actions.githubusercontent.com'
+        ctlog:
+          url: 'https://rekor.sigstore.dev'
+  validations:
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors.cosign])).all(e, e > 0)
+      message: 'Imagen sin firma válida de la identidad esperada'

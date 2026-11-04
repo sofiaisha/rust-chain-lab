@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  trust-chain-lab, pista A. Federación OIDC de GitHub Actions con AWS, sin llaves estáticas.
+  Crea (opcionalmente) el proveedor OIDC de GitHub, un parámetro de SSM y un rol con trust policy
+  acotada al repositorio y la rama del laboratorio. No cuesta nada.
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Description: Dueño del repositorio (usuario u organización), por ejemplo "sofiaisha".
+  GitHubOwnerId:
+    Type: String
+    AllowedPattern: "^[0-9]+$"
+    Description: ID numérico del dueño. Obtenlo con scripts/get-repo-ids.sh.
+  GitHubRepo:
+    Type: String
+    Description: Nombre del repositorio, por ejemplo "trust-chain-lab".
+  GitHubRepoId:
+    Type: String
+    AllowedPattern: "^[0-9]+$"
+    Description: ID numérico del repositorio. Obtenlo con scripts/get-repo-ids.sh.
+  Branch:
+    Type: String
+    Default: main
+    Description: Única rama que podrá asumir el rol.
+  CreateOidcProvider:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: >-
+      Una cuenta solo puede tener un proveedor OIDC por URL. Si ya existe el de GitHub en tu cuenta,
+      usa "false".
+  UseLegacySubFormat:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >-
+      Ejercicio A3. Con "true" la trust policy usa el formato antiguo del claim sub (sin IDs) y,
+      en un repositorio nuevo, la asunción del rol falla a propósito.
+
+Conditions:
+  CreateProvider: !Equals [!Ref CreateOidcProvider, "true"]
+  LegacySub: !Equals [!Ref UseLegacySubFormat, "true"]
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+
+  LabParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /trust-chain-lab/hello
+      Type: String
+      Value: "hola desde la cadena de confianza"
+      Description: Valor que lee el workflow para demostrar que la asunción del rol funcionó.
+
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: trust-chain-lab-gha
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - CreateProvider
+                - !Ref GitHubOidcProvider
+                - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                "token.actions.githubusercontent.com:aud": sts.amazonaws.com
+                "token.actions.githubusercontent.com:sub": !If
+                  - LegacySub
+                  - !Sub "repo:${GitHubOwner}/${GitHubRepo}:ref:refs/heads/${Branch}"
+                  - !Sub "repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@${GitHubRepoId}:ref:refs/heads/${Branch}"
+      Policies:
+        - PolicyName: read-lab-parameter
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/trust-chain-lab/hello"
+
+Outputs:
+  RoleArn:
+    Description: Pégalo como variable de repositorio AWS_ROLE_ARN en GitHub.
+    Value: !GetAtt GitHubActionsRole.Arn
+  ExpectedSubject:
+    Description: Valor de sub que exige la trust policy.
+    Value: !If
+      - LegacySub
+      - !Sub "repo:${GitHubOwner}/${GitHubRepo}:ref:refs/heads/${Branch}"
+      - !Sub "repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@${GitHubRepoId}:ref:refs/heads/${Branch}"

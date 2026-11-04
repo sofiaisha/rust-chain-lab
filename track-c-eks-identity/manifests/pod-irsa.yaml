@@ -1,0 +1,25 @@
+# Pod que usa la cuenta de servicio de IRSA (irsa-reader). Muestra con qué mecanismo recibió credenciales,
+# quién es según STS y lee el parámetro de SSM. El token en sí no se imprime.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: irsa-demo
+  namespace: lab
+spec:
+  serviceAccountName: irsa-reader
+  restartPolicy: Never
+  containers:
+    - name: aws-cli
+      image: public.ecr.aws/aws-cli/aws-cli:latest
+      env:
+        - name: AWS_DEFAULT_REGION
+          value: us-east-1
+      command: ["sh", "-c"]
+      args:
+        - |
+          echo "--- variables de credenciales (solo nombres y rutas) ---"
+          env | grep -E '^AWS_(ROLE_ARN|WEB_IDENTITY_TOKEN_FILE|CONTAINER_[A-Z_]+)=' || true
+          echo "--- quién soy según STS ---"
+          aws sts get-caller-identity
+          echo "--- leer el parámetro de SSM ---"
+          aws ssm get-parameter --name /trust-chain-lab/pods --query Parameter.Value --output text

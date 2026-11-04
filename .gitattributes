@@ -1,0 +1,5 @@
+# Los scripts y los YAML deben conservar finales de línea LF en cualquier sistema (un .sh con CRLF falla en Linux y macOS).
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf

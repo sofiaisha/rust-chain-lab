@@ -1,0 +1,25 @@
+# Pod que usa la cuenta de servicio de EKS Pod Identity (pi-reader). Misma salida que pod-irsa.yaml
+# para comparar qué variables de entorno inyecta cada mecanismo.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podidentity-demo
+  namespace: lab
+spec:
+  serviceAccountName: pi-reader
+  restartPolicy: Never
+  containers:
+    - name: aws-cli
+      image: public.ecr.aws/aws-cli/aws-cli:latest
+      env:
+        - name: AWS_DEFAULT_REGION
+          value: us-east-1
+      command: ["sh", "-c"]
+      args:
+        - |
+          echo "--- variables de credenciales (solo nombres y rutas) ---"
+          env | grep -E '^AWS_(ROLE_ARN|WEB_IDENTITY_TOKEN_FILE|CONTAINER_[A-Z_]+)=' || true
+          echo "--- quién soy según STS ---"
+          aws sts get-caller-identity
+          echo "--- leer el parámetro de SSM ---"
+          aws ssm get-parameter --name /trust-chain-lab/pods --query Parameter.Value --output text

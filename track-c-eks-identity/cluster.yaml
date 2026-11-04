@@ -1,0 +1,24 @@
+# Clúster de EKS para la pista C. Solo prepara lo que hace falta para comparar los dos mecanismos:
+#   - iam.withOIDC: true  -> crea el proveedor OIDC de IAM del clúster (lo requiere IRSA)
+#   - eks-pod-identity-agent -> el agente que requiere EKS Pod Identity
+# Las cuentas de servicio y los roles se crean después, paso a paso, con los comandos del README.
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: trust-chain-lab
+  region: us-east-1
+  version: "1.36"
+
+iam:
+  withOIDC: true
+
+addons:
+  - name: eks-pod-identity-agent
+
+managedNodeGroups:
+  - name: ng-lab
+    instanceType: t3.medium
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 1

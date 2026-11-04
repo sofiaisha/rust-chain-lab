@@ -1,0 +1,28 @@
+name: A · OIDC whoami
+
+# Pista A: demuestra que el workflow asume un rol de AWS sin ninguna llave estática.
+# Antes de ejecutarlo crea la variable de repositorio AWS_ROLE_ARN (Settings > Secrets and variables > Actions > Variables).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # solo permite pedir el token OIDC; no da escritura sobre ningún recurso
+
+jobs:
+  whoami:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Asumir el rol por OIDC
+        # Acción fijada por SHA del commit de la etiqueta v6.3.0
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          role-session-name: trust-chain-lab
+
+      - name: ¿Quién soy?
+        run: aws sts get-caller-identity
+
+      - name: Leer el parámetro del laboratorio
+        run: aws ssm get-parameter --name /trust-chain-lab/hello --query Parameter.Value --output text
